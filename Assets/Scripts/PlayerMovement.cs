@@ -5,20 +5,35 @@ using UnityEngine;
 public class PlayerMovement : MonoBehaviour
 {
     private Camera myCam;
-    private bool clicked;
-    public GameObject effects;
+    private Vector2 destinationPoint;
+    private Animator anim;
+    private bool clicked, foundPlatform;
+    public GameObject effects, indicatorArrow;
     public Transform arrowHold, startPos;
     public LineRenderer lineRenderer;
     public float maxDistance = 7.5f;
+    public float speed = 5f;
+    public float distancePoint = 0.5f;
+    public bool onGround;
+
+    private void Awake()
+    {
+        anim = GetComponent<Animator>();
+        myCam = Camera.main;
+    }
 
     private void Start()
     {
-        myCam = Camera.main;
+        onGround = true;
+        destinationPoint = transform.position;
     }
 
     private void Update()
     {
-        if (Input.GetButtonDown("Fire1"))
+
+        anim.SetBool("onGround", onGround);
+
+        if (Input.GetButtonDown("Fire1") && onGround)
         {
             effects.SetActive(true);
             clicked = true;
@@ -37,18 +52,71 @@ public class PlayerMovement : MonoBehaviour
 
             if (hit.collider != null)
             {
-                lineRenderer.SetPosition(1, hit.point);
+                Platform platform = hit.collider.GetComponent<Platform>();
+
+                if (platform != null)
+                {
+                    lineRenderer.SetPosition(1, hit.point);
+                    destinationPoint = platform.Point(hit.point);
+                    indicatorArrow.transform.position = platform.Point(hit.point) - ((Vector2) indicatorArrow.transform.up * 0.25f);
+                    indicatorArrow.SetActive(true);
+                    foundPlatform = true;
+                }
+                else
+                {
+                    lineRenderer.SetPosition(1, hit.point);
+                    indicatorArrow.SetActive(false);
+                    foundPlatform = false;
+                }
+                
+
             }
             else
             {
                 lineRenderer.SetPosition(1, startPos.position + (startPos.up * maxDistance));
+                indicatorArrow.SetActive(false);
+                foundPlatform = false;
+            }
+
+            if(arrowHold.localEulerAngles.z <= 270 && arrowHold.localEulerAngles.z >= 90)
+            {
+                effects.SetActive(false);
+                foundPlatform = false;
+            }
+            else
+            {
+                effects.SetActive(true);
             }
 
             if (Input.GetButtonUp("Fire1"))
             {
+                if (foundPlatform)
+                {
+                    Flip(hit.transform.eulerAngles.z);
+                    onGround = false;
+                }
+                foundPlatform = false;
                 clicked = false;
                 effects.SetActive(false);
             }
         }
+
+        if (!onGround)
+        {
+            transform.position = Vector2.Lerp(transform.position, destinationPoint, speed * Time.deltaTime);
+        }
+
+        float distance = Vector2.Distance(transform.position, destinationPoint);
+
+        if (distance <= distancePoint && !onGround)
+        {
+            onGround = true;
+            transform.position += transform.up * 0.5f;
+        }
+    }
+
+    private void Flip(float rot)
+    {
+        transform.rotation = Quaternion.Euler(new Vector3(0,0,rot));
     }
 }
